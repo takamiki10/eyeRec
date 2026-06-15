@@ -2,6 +2,8 @@
 
 Preliminary Python scaffold for an eyewear recommendation pipeline. The current implementation is intentionally placeholder-based: it does not download models, does not use Roboflow API keys, and does not run real inference.
 
+Recommended Python version: 3.10, 3.11, or 3.12.
+
 ## Pipeline Overview
 
 User face image -> preprocessing -> four feature-detection nodes -> feature aggregation -> ANN/DNN recommender placeholder -> top 3 eyewear recommendations.
@@ -30,7 +32,7 @@ eyewear_recommendation_system/
 
 ```bash
 cd eyewear_recommendation_system
-python -m venv .venv
+py -3.12 -m venv .venv (Check with py -3.13 --version)
 .venv\Scripts\activate
 pip install -r requirements.txt
 pip install -e .
