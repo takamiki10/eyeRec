@@ -1,0 +1,4 @@
+mode: placeholder_rule_based
+top_k: 3
+catalog_path: data/eyewear_catalog/eyewear_items.csv
+dnn_model_path: models/recommender/placeholder_dnn.pt
