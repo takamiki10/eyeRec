@@ -1,0 +1,9 @@
+# Tested dependency set for Windows and macOS on Python 3.10-3.12.
+numpy==1.26.4
+pandas==2.2.2
+opencv-python==4.10.0.84
+Pillow==10.4.0
+PyYAML==6.0.2
+torch==2.3.1
+torchvision==0.18.1
+pytest==8.3.2

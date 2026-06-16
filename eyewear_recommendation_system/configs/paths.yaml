@@ -1,0 +1,13 @@
+data:
+  input_faces: data/input_faces
+  processed: data/processed
+  eyewear_catalog: data/eyewear_catalog/eyewear_items.csv
+  eyewear_images: data/eyewear_catalog/eyewear_images
+  external_models: data/external_models
+outputs:
+  node_predictions: outputs/node_predictions
+  recommendations: outputs/recommendations
+  visualizations: outputs/visualizations
+models:
+  feature_extractors: models/feature_extractors
+  recommender: models/recommender

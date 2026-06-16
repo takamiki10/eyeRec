@@ -1,0 +1,7 @@
+eyewear_recommendation_system/.git_backup_from_app/
+.git_backup_from_app/
+
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/

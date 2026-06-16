@@ -1,0 +1,21 @@
+eye_color:
+  sources:
+    - https://github.com/Avaneesh-Pathak/Eye_Color_Detection
+    - https://universe.roboflow.com/fashion-by4cb/eye-color-bc6ji/dataset/4/download
+  local_model_path: data/external_models/eye_color/placeholder_model.pt
+  status: placeholder_only
+eye_shape:
+  sources:
+    - https://universe.roboflow.com/eyeshapes/eye-shapes-2
+  local_model_path: data/external_models/eye_shape/placeholder_model.pt
+  status: placeholder_only
+pupil_distance:
+  sources:
+    - https://universe.roboflow.com/3dface/pupillary-distance/dataset/1
+  local_model_path: data/external_models/pupil_distance/placeholder_model.pt
+  status: placeholder_only
+face_shape:
+  sources:
+    - https://universe.roboflow.com/yes-ripdh/face-shape-detection
+  local_model_path: data/external_models/face_shape/placeholder_model.pt
+  status: placeholder_only

@@ -1,0 +1,30 @@
+eye_color:
+  type: categorical
+  allowed_values:
+    - brown
+    - black
+    - blue
+    - green
+    - hazel
+    - gray
+eye_shape:
+  type: categorical
+  allowed_values:
+    - almond
+    - round
+    - monolid
+    - hooded
+    - upturned
+    - downturned
+face_shape:
+  type: categorical
+  allowed_values:
+    - oval
+    - round
+    - square
+    - heart
+    - diamond
+    - oblong
+pupil_distance:
+  type: continuous
+  unit: normalized_face_width
