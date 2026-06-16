@@ -1,0 +1,15 @@
+seed: 42
+image_size: 224
+batch_size: 32
+epochs: 20
+learning_rate: 0.0003
+num_workers: 2
+use_pretrained: false
+device: auto
+model_name: mobilenet_v3_small
+train_dir: data/processed/train
+val_dir: data/processed/val
+test_dir: data/processed/test
+checkpoint_dir: artifacts/checkpoints
+export_dir: artifacts/exported
+metrics_dir: artifacts/metrics
