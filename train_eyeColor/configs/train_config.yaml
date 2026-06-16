@@ -1,7 +1,7 @@
 seed: 42
 image_size: 224
 batch_size: 32
-epochs: 20
+epochs: 200
 learning_rate: 0.0003
 num_workers: 2
 use_pretrained: false

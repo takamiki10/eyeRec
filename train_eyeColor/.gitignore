@@ -2,6 +2,9 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+*.egg-info/
+build/
+dist/
 
 data/raw/*
 !data/raw/README.md
@@ -26,3 +29,4 @@ artifacts/metrics/*
 !artifacts/metrics/.gitkeep
 artifacts/exported/*
 !artifacts/exported/.gitkeep
+!artifacts/exported/eye_color_model.pt

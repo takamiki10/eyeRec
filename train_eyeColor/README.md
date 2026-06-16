@@ -146,3 +146,11 @@ The Roboflow dataset uses the label `grey`. The main application may later map `
 Reference only:
 
 - https://github.com/Avaneesh-Pathak/Eye_Color_Detection
+
+
+## 11. How to Use
+```powershell
+
+python scripts/train_eye_color.py --config configs/train_config.yaml
+python scripts/evaluate_eye_color.py --config configs/train_config.yaml
+```
