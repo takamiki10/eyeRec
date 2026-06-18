@@ -2,7 +2,6 @@ eye_color:
   type: categorical
   allowed_values:
     - brown
-    - black
     - blue
     - green
     - hazel

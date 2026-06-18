@@ -9,9 +9,8 @@ def test_label_mapping_loads_correctly():
 
     assert mapping == {
         "brown": 0,
-        "black": 1,
-        "blue": 2,
-        "green": 3,
-        "hazel": 4,
-        "grey": 5,
+        "blue": 1,
+        "green": 2,
+        "hazel": 3,
+        "grey": 4,
     }

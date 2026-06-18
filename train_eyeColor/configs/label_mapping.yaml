@@ -1,9 +1,8 @@
 labels:
   brown: 0
-  black: 1
-  blue: 2
-  green: 3
-  hazel: 4
-  grey: 5
+  blue: 1
+  green: 2
+  hazel: 3
+  grey: 4
 
-notes: "The Roboflow dataset uses grey. The main application may later map grey to gray. Some Folder Structure exports use amber instead of black; prepare_dataset.py merges amber images into hazel and creates empty folders for missing configured labels."
+notes: "The Roboflow dataset uses grey. The main application may later map grey to gray. Some Folder Structure exports use amber; prepare_dataset.py merges amber images into hazel."

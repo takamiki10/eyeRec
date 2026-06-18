@@ -71,6 +71,10 @@ Then run:
 python scripts/prepare_dataset.py --raw_dir data/raw --output_dir data/processed
 ```
 
+Dataset preparation first tries to detect eyes in every raw image and writes eye crops
+into `data/processed/`. If the detector does not find an eye, the script keeps the
+image as-is so already-cropped eye images remain usable.
+
 The script copies `valid` to `val` so training uses:
 
 ```text

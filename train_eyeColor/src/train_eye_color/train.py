@@ -52,6 +52,25 @@ def run_epoch(model, dataloader, criterion, device, optimizer=None) -> tuple[flo
     return total_loss / total, correct / total
 
 
+def save_best_export(checkpoint: dict, export_dir: Path, epoch: int, val_accuracy: float) -> None:
+    versioned_path = export_dir / f"eye_color_model_epoch_{epoch:03d}_val_{val_accuracy:.4f}.pt"
+    torch.save(checkpoint, versioned_path)
+
+    final_path = export_dir / "eye_color_model.pt"
+    temp_path = export_dir / f".{final_path.name}.tmp_{epoch:03d}_{int(time.time())}"
+    try:
+        torch.save(checkpoint, temp_path)
+        temp_path.replace(final_path)
+    except (OSError, RuntimeError) as error:
+        if temp_path.exists():
+            temp_path.unlink()
+        print(
+            "warning: saved best model version but could not update "
+            f"{final_path}: {error}. Close any process syncing or reading that file, "
+            f"then copy {versioned_path.name} to {final_path.name}."
+        )
+
+
 def train(config_path: str | Path) -> dict:
     config_path = Path(config_path)
     config = load_yaml(config_path)
@@ -135,7 +154,7 @@ def train(config_path: str | Path) -> dict:
 
         if val_accuracy >= best_val_accuracy:
             best_val_accuracy = val_accuracy
-            torch.save(checkpoint, export_dir / "eye_color_model.pt")
+            save_best_export(checkpoint, export_dir, epoch, val_accuracy)
 
     training_metrics = {
         "best_val_accuracy": best_val_accuracy,

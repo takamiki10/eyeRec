@@ -15,6 +15,7 @@ dependencies = [
   "pandas",
   "Pillow",
   "PyYAML",
+  "opencv-python",
   "scikit-learn",
   "tqdm",
 ]
