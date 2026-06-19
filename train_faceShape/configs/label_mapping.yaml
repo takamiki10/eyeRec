@@ -1,0 +1,9 @@
+labels:
+  oval: 0
+  round: 1
+  square: 2
+  heart: 3
+  diamond: 4
+  oblong: 5
+
+notes: "Labels mirror eyewear_recommendation_system/configs/feature_schema.yaml."
