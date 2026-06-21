@@ -15,4 +15,6 @@ def test_full_pipeline_returns_expected_sections(tmp_path: Path):
     assert "aggregated_features" in result
     assert "recommendations" in result
     assert len(result["node_outputs"]) == 4
-    assert len(result["recommendations"]) == 3
+    assert result["recommendations"]["success"] is True
+    assert "sentence" in result["recommendations"]
+    assert isinstance(result["recommendations"]["sentence"], str)

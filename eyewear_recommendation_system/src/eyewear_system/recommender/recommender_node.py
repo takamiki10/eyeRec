@@ -1,30 +1,15 @@
-"""Placeholder recommender node."""
+"""Compatibility wrapper for the rule-based recommender."""
+from __future__ import annotations
+from typing import Any
+from eyewear_system.recommender.rule_based_recommender import RuleBasedEyewearRecommender
 
 
 class RecommenderNode:
-    """Dummy rule-based recommender returning a fixed top 3."""
+    def __init__(self) -> None:
+        self.recommender = RuleBasedEyewearRecommender()
 
-    def recommend(self, features: dict) -> list[dict]:
-        return [
-            {
-                "rank": 1,
-                "frame_shape": "round",
-                "frame_color": "dark brown",
-                "score": 0.92,
-                "reason": "Placeholder recommendation based on oval face shape and brown eye color.",
-            },
-            {
-                "rank": 2,
-                "frame_shape": "soft square",
-                "frame_color": "black",
-                "score": 0.87,
-                "reason": "Placeholder recommendation.",
-            },
-            {
-                "rank": 3,
-                "frame_shape": "oval",
-                "frame_color": "tortoise",
-                "score": 0.83,
-                "reason": "Placeholder recommendation.",
-            },
-        ]
+    def recommend(self, features: dict[str, Any] | None) -> dict[str, Any]:
+        return self.recommender.recommend(features)
+
+    def recommend_sentence(self, features: dict[str, Any] | None) -> str:
+        return self.recommender.recommend_sentence(features)
