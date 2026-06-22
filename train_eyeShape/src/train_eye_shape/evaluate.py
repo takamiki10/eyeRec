@@ -45,6 +45,10 @@ def evaluate(config_path: str | Path) -> dict:
 
     class_correct = {label: 0 for label in label_to_index}
     class_total = {label: 0 for label in label_to_index}
+    confusion = {
+        actual: {predicted: 0 for predicted in label_to_index}
+        for actual in label_to_index
+    }
     correct = 0
     total = 0
 
@@ -60,7 +64,9 @@ def evaluate(config_path: str | Path) -> dict:
 
             for prediction, label_index in zip(predictions.cpu().tolist(), labels.cpu().tolist()):
                 label_name = index_to_label[label_index]
+                prediction_name = index_to_label[prediction]
                 class_total[label_name] += 1
+                confusion[label_name][prediction_name] += 1
                 if prediction == label_index:
                     class_correct[label_name] += 1
 
@@ -74,11 +80,18 @@ def evaluate(config_path: str | Path) -> dict:
         "accuracy": accuracy,
         "per_class_accuracy": per_class_accuracy,
         "class_total": class_total,
+        "confusion": confusion,
     }
 
     print(f"accuracy: {accuracy:.4f}")
     for label, value in per_class_accuracy.items():
         print(f"{label}: {value:.4f} ({class_correct[label]}/{class_total[label]})")
+    print("confusion:")
+    header = "actual\\pred " + " ".join(f"{label[:4]:>5}" for label in label_to_index)
+    print(header)
+    for actual_label in label_to_index:
+        row = " ".join(f"{confusion[actual_label][predicted_label]:>5}" for predicted_label in label_to_index)
+        print(f"{actual_label[:11]:>11} {row}")
 
     metrics_dir = resolve_path(config["metrics_dir"], base_dir)
     save_json(results, metrics_dir / "evaluation_metrics.json")

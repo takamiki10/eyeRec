@@ -1,15 +1,11 @@
 # Raw Dataset Placement
 
-Place pupil-distance regression data here with `train/`, `valid/`, and `test/` image folders.
+Place the Roboflow `pupillary distance` YOLO export here.
 
-Provide labels as either root-level files:
+Then run:
 
-```text
-data/raw/train_labels.csv
-data/raw/valid_labels.csv
-data/raw/test_labels.csv
+```powershell
+python scripts/prepare_dataset.py --raw_dir data/raw --output_dir data/processed
 ```
 
-or as `labels.csv` inside each split folder.
-
-Each CSV must include `image_path,pupil_distance`, where `image_path` is relative to the split image folder.
+The preparation script converts YOLO pupil boxes into `image_path,pupil_distance` CSV labels.

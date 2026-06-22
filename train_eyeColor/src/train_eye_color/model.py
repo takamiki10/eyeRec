@@ -1,22 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
-from urllib.parse import urlparse
-
 import torch
 from torch import nn
 from torchvision import models
-
-
-def _ensure_pretrained_weights_are_cached(weights) -> None:
-    filename = Path(urlparse(weights.url).path).name
-    checkpoint_path = Path(torch.hub.get_dir()) / "checkpoints" / filename
-    if not checkpoint_path.exists():
-        raise FileNotFoundError(
-            "use_pretrained=True requires torchvision weights to already exist in the local "
-            f"torch cache: {checkpoint_path}. This project does not download models automatically. "
-            "Set use_pretrained: false or manually place the weights in the torch cache."
-        )
 
 
 def build_model(
@@ -24,14 +10,20 @@ def build_model(
     model_name: str = "mobilenet_v3_small",
     use_pretrained: bool = False,
 ) -> nn.Module:
-    if model_name != "mobilenet_v3_small":
-        raise ValueError("Only model_name='mobilenet_v3_small' is supported in this scaffold.")
+    if model_name == "mobilenet_v3_small":
+        weights = models.MobileNet_V3_Small_Weights.DEFAULT if use_pretrained else None
+        model = models.mobilenet_v3_small(weights=weights)
+    elif model_name == "mobilenet_v3_large":
+        weights = models.MobileNet_V3_Large_Weights.DEFAULT if use_pretrained else None
+        model = models.mobilenet_v3_large(weights=weights)
+    elif model_name == "efficientnet_b0":
+        weights = models.EfficientNet_B0_Weights.DEFAULT if use_pretrained else None
+        model = models.efficientnet_b0(weights=weights)
+    else:
+        raise ValueError(
+            "Supported model_name values: mobilenet_v3_small, mobilenet_v3_large, efficientnet_b0."
+        )
 
-    weights = models.MobileNet_V3_Small_Weights.DEFAULT if use_pretrained else None
-    if weights is not None:
-        _ensure_pretrained_weights_are_cached(weights)
-
-    model = models.mobilenet_v3_small(weights=weights)
     in_features = model.classifier[-1].in_features
     model.classifier[-1] = nn.Linear(in_features, num_classes)
     return model

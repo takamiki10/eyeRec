@@ -2,7 +2,7 @@
 
 Place a face-shape image-classification dataset here with `train/`, `valid/`, and `test/` splits.
 
-Expected class folders: `oval`, `round`, `square`, `heart`, `diamond`, `oblong`.
+Expected class folders: `oval`, `round`, `square`, `heart`, `oblong`.
 
 Then run:
 

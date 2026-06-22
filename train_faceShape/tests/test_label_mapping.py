@@ -12,6 +12,5 @@ def test_label_mapping_loads_correctly():
         "round": 1,
         "square": 2,
         "heart": 3,
-        "diamond": 4,
-        "oblong": 5,
+        "oblong": 4,
     }

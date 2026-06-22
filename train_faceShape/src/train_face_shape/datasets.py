@@ -3,11 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-from PIL import Image
+from PIL import Image, ImageFile
 from torch.utils.data import Dataset
 from torchvision import transforms
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 class FaceShapeFolderDataset(Dataset):
@@ -71,8 +72,9 @@ class FaceShapeFolderDataset(Dataset):
 def build_train_transforms(image_size: int):
     return transforms.Compose(
         [
-            transforms.Resize((image_size, image_size)),
+            transforms.RandomResizedCrop(image_size, scale=(0.80, 1.0), ratio=(0.85, 1.15)),
             transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomRotation(degrees=8),
             transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.10, hue=0.02),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),

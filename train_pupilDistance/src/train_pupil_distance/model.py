@@ -1,22 +1,18 @@
 from __future__ import annotations
 
-from pathlib import Path
-from urllib.parse import urlparse
-
 import torch
 from torch import nn
 from torchvision import models
 
 
-def _ensure_pretrained_weights_are_cached(weights) -> None:
-    filename = Path(urlparse(weights.url).path).name
-    checkpoint_path = Path(torch.hub.get_dir()) / "checkpoints" / filename
-    if not checkpoint_path.exists():
-        raise FileNotFoundError(
-            "use_pretrained=True requires torchvision weights to already exist in the local "
-            f"torch cache: {checkpoint_path}. This project does not download models automatically. "
-            "Set use_pretrained: false or manually place the weights in the torch cache."
-        )
+class ScaledSigmoid(nn.Module):
+    def __init__(self, output_min: float = 0.15, output_max: float = 0.35) -> None:
+        super().__init__()
+        self.output_min = output_min
+        self.output_scale = output_max - output_min
+
+    def forward(self, values: torch.Tensor) -> torch.Tensor:
+        return self.output_min + self.output_scale * values
 
 
 def build_model(model_name: str = "mobilenet_v3_small", use_pretrained: bool = False) -> nn.Module:
@@ -24,12 +20,13 @@ def build_model(model_name: str = "mobilenet_v3_small", use_pretrained: bool = F
         raise ValueError("Only model_name='mobilenet_v3_small' is supported in this scaffold.")
 
     weights = models.MobileNet_V3_Small_Weights.DEFAULT if use_pretrained else None
-    if weights is not None:
-        _ensure_pretrained_weights_are_cached(weights)
-
     model = models.mobilenet_v3_small(weights=weights)
     in_features = model.classifier[-1].in_features
-    model.classifier[-1] = nn.Linear(in_features, 1)
+    model.classifier[-1] = nn.Sequential(
+        nn.Linear(in_features, 1),
+        nn.Sigmoid(),
+        ScaledSigmoid(),
+    )
     return model
 
 

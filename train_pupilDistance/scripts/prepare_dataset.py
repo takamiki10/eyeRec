@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import argparse
 import csv
+import math
 import shutil
 from pathlib import Path
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+PUPIL_DIAMETER_COLUMNS = ("Pupil diameter left", "Pupil diameter right")
 
 
 def resolve_source_split(raw_dir: Path, source_split: str) -> Path:
@@ -41,6 +43,10 @@ def resolve_labels_csv(raw_dir: Path, source_split: str) -> Path:
 
 def copy_split(raw_dir: Path, output_dir: Path, source_split: str, target_split: str) -> None:
     source_root = resolve_source_split(raw_dir, source_split)
+    if (source_root / "images").exists() and (source_root / "labels").exists():
+        copy_yolo_pupil_distance_split(source_root, output_dir, target_split)
+        return
+
     source_labels = resolve_labels_csv(raw_dir, source_split)
     target_root = output_dir / target_split
     target_labels = output_dir / f"{target_split}_labels.csv"
@@ -80,6 +86,180 @@ def copy_split(raw_dir: Path, output_dir: Path, source_split: str, target_split:
     print(f"{source_root.name} -> {target_split}: {len(copied_rows)} labeled images")
 
 
+def read_yolo_centers(annotation_path: Path) -> list[tuple[float, float, float]]:
+    centers: list[tuple[float, float, float]] = []
+    with annotation_path.open("r", encoding="utf-8") as file:
+        for line in file:
+            parts = line.strip().split()
+            if len(parts) < 5:
+                continue
+            x_center = float(parts[1])
+            y_center = float(parts[2])
+            width = float(parts[3])
+            height = float(parts[4])
+            centers.append((x_center, y_center, width * height))
+    return centers
+
+
+def pupil_distance_from_yolo(annotation_path: Path) -> float | None:
+    centers = read_yolo_centers(annotation_path)
+    if len(centers) < 2:
+        return None
+
+    largest_two = sorted(centers, key=lambda item: item[2], reverse=True)[:2]
+    left, right = sorted(largest_two, key=lambda item: item[0])
+    return math.sqrt((right[0] - left[0]) ** 2 + (right[1] - left[1]) ** 2)
+
+
+def copy_yolo_pupil_distance_split(source_root: Path, output_dir: Path, target_split: str) -> None:
+    images_root = source_root / "images"
+    labels_root = source_root / "labels"
+    target_root = output_dir / target_split
+    target_labels = output_dir / f"{target_split}_labels.csv"
+
+    if target_root.exists():
+        shutil.rmtree(target_root)
+    target_root.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    rows: list[dict[str, str]] = []
+    skipped = 0
+    for image_path in sorted(images_root.rglob("*")):
+        if not image_path.is_file() or image_path.suffix.lower() not in IMAGE_EXTENSIONS:
+            continue
+
+        annotation_path = labels_root / f"{image_path.stem}.txt"
+        if not annotation_path.exists():
+            skipped += 1
+            continue
+
+        pupil_distance = pupil_distance_from_yolo(annotation_path)
+        if pupil_distance is None:
+            skipped += 1
+            continue
+
+        destination = target_root / image_path.name
+        if destination.exists():
+            destination = target_root / f"{image_path.stem}_{len(rows)}{image_path.suffix}"
+        shutil.copy2(image_path, destination)
+        rows.append({"image_path": destination.name, "pupil_distance": f"{pupil_distance:.8f}"})
+
+    with target_labels.open("w", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=["image_path", "pupil_distance"])
+        writer.writeheader()
+        writer.writerows(rows)
+
+    print(f"{source_root.name} YOLO -> {target_split}: {len(rows)} labeled images")
+    if skipped:
+        print(f"  warning: skipped {skipped} images without two pupil annotations")
+
+
+def parse_number(value: str | None) -> float | None:
+    if value is None:
+        return None
+    value = value.strip().replace(",", ".")
+    if not value:
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+def delimiter_for(path: Path) -> str:
+    return "\t" if path.suffix.lower() == ".tsv" else ","
+
+
+def find_eye_tracking_logs(raw_dir: Path) -> list[Path]:
+    candidates = [*raw_dir.rglob("*.tsv"), *raw_dir.rglob("*.csv")]
+    return sorted(
+        path
+        for path in candidates
+        if "Questionnaire" not in path.name and "Pupil Diameters" in str(path)
+    )
+
+
+def summarize_pupil_log(path: Path) -> dict[str, str] | None:
+    values: list[float] = []
+    participant = path.stem
+    media_names: set[str] = set()
+
+    with path.open("r", encoding="utf-8-sig", newline="") as file:
+        reader = csv.DictReader(file, delimiter=delimiter_for(path))
+        if not reader.fieldnames or not any(column in reader.fieldnames for column in PUPIL_DIAMETER_COLUMNS):
+            return None
+
+        for row in reader:
+            participant = row.get("Participant name") or participant
+            media_name = (row.get("Presented Media name") or "").strip()
+            if media_name:
+                media_names.add(media_name)
+
+            row_values = [parse_number(row.get(column)) for column in PUPIL_DIAMETER_COLUMNS]
+            row_values = [value for value in row_values if value is not None]
+            if row_values:
+                values.append(sum(row_values) / len(row_values))
+
+    if not values:
+        return None
+
+    return {
+        "source_file": str(path),
+        "participant": participant,
+        "sample_count": str(len(values)),
+        "mean_pupil_diameter": f"{sum(values) / len(values):.6f}",
+        "min_pupil_diameter": f"{min(values):.6f}",
+        "max_pupil_diameter": f"{max(values):.6f}",
+        "presented_media_count": str(len(media_names)),
+    }
+
+
+def write_rows(path: Path, rows: list[dict[str, str]]) -> None:
+    fieldnames = [
+        "source_file",
+        "participant",
+        "sample_count",
+        "mean_pupil_diameter",
+        "min_pupil_diameter",
+        "max_pupil_diameter",
+        "presented_media_count",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def prepare_eye_tracking_summary(raw_dir: Path, output_dir: Path) -> bool:
+    log_paths = find_eye_tracking_logs(raw_dir)
+    if not log_paths:
+        return False
+
+    rows = [row for path in log_paths if (row := summarize_pupil_log(path)) is not None]
+    if not rows:
+        return False
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    write_rows(output_dir / "pupil_diameter_summary.csv", rows)
+
+    train_end = max(1, int(len(rows) * 0.70))
+    val_end = max(train_end + 1, int(len(rows) * 0.85)) if len(rows) > 1 else train_end
+    write_rows(output_dir / "train_pupil_diameter_summary.csv", rows[:train_end])
+    write_rows(output_dir / "val_pupil_diameter_summary.csv", rows[train_end:val_end])
+    write_rows(output_dir / "test_pupil_diameter_summary.csv", rows[val_end:])
+
+    print(f"Prepared pupil diameter summaries at: {output_dir}")
+    print(f"  total recordings: {len(rows)}")
+    print(f"  train recordings: {len(rows[:train_end])}")
+    print(f"  val recordings: {len(rows[train_end:val_end])}")
+    print(f"  test recordings: {len(rows[val_end:])}")
+    print(
+        "  note: this dataset contains eye-tracking pupil diameter logs."
+    )
+    return True
+
+
 def prepare_dataset(raw_dir: str | Path, output_dir: str | Path) -> None:
     project_dir = Path(__file__).resolve().parents[1]
     raw_dir = Path(raw_dir)
@@ -89,6 +269,9 @@ def prepare_dataset(raw_dir: str | Path, output_dir: str | Path) -> None:
     if not output_dir.is_absolute():
         output_dir = project_dir / output_dir
 
+    if not (raw_dir / "train").exists() and prepare_eye_tracking_summary(raw_dir, output_dir):
+        return
+
     split_map = {"train": "train", "valid": "val", "test": "test"}
     for source_split, target_split in split_map.items():
         copy_split(raw_dir, output_dir, source_split, target_split)
@@ -97,7 +280,7 @@ def prepare_dataset(raw_dir: str | Path, output_dir: str | Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Prepare local pupil distance regression dataset.")
+    parser = argparse.ArgumentParser(description="Prepare local pupil distance or pupil diameter dataset.")
     parser.add_argument("--raw_dir", default="data/raw", help="Folder containing source images and labels.")
     parser.add_argument("--output_dir", default="data/processed", help="Folder to receive train/val/test data.")
     args = parser.parse_args()

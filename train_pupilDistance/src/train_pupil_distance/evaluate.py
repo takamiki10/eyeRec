@@ -43,6 +43,11 @@ def evaluate(config_path: str | Path) -> dict:
 
     absolute_error_sum = 0.0
     squared_error_sum = 0.0
+    tolerance_hits = {
+        "within_0_02": 0,
+        "within_0_03": 0,
+        "within_0_05": 0,
+    }
     total = 0
 
     with torch.no_grad():
@@ -51,21 +56,32 @@ def evaluate(config_path: str | Path) -> dict:
             targets = targets.to(device)
             predictions = model(images).squeeze(1)
             errors = predictions - targets
+            absolute_errors = torch.abs(errors)
 
-            absolute_error_sum += torch.abs(errors).sum().item()
+            absolute_error_sum += absolute_errors.sum().item()
             squared_error_sum += torch.square(errors).sum().item()
+            tolerance_hits["within_0_02"] += (absolute_errors <= 0.02).sum().item()
+            tolerance_hits["within_0_03"] += (absolute_errors <= 0.03).sum().item()
+            tolerance_hits["within_0_05"] += (absolute_errors <= 0.05).sum().item()
             total += targets.size(0)
 
     mae = absolute_error_sum / total if total else 0.0
     rmse = math.sqrt(squared_error_sum / total) if total else 0.0
+    tolerance_accuracy = {
+        name: hits / total if total else 0.0
+        for name, hits in tolerance_hits.items()
+    }
     results = {
         "mae": mae,
         "rmse": rmse,
+        **tolerance_accuracy,
         "total": total,
     }
 
     print(f"mae: {mae:.4f}")
     print(f"rmse: {rmse:.4f}")
+    for name, value in tolerance_accuracy.items():
+        print(f"{name}: {value:.4f} ({tolerance_hits[name]}/{total})")
 
     metrics_dir = resolve_path(config["metrics_dir"], base_dir)
     save_json(results, metrics_dir / "evaluation_metrics.json")

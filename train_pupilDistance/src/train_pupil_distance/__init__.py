@@ -1,3 +1,3 @@
-"""Local pupil distance classifier training package."""
+"""Local pupil distance training package."""
 
 __version__ = "0.1.0"

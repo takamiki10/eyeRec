@@ -3,11 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-from PIL import Image
+from PIL import Image, ImageFile
 from torch.utils.data import Dataset
 from torchvision import transforms
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 class EyeShapeFolderDataset(Dataset):
@@ -72,8 +73,8 @@ def build_train_transforms(image_size: int):
     return transforms.Compose(
         [
             transforms.Resize((image_size, image_size)),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.10, hue=0.02),
+            transforms.RandomRotation(degrees=4),
+            transforms.ColorJitter(brightness=0.10, contrast=0.10, saturation=0.06, hue=0.01),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ]
@@ -83,8 +84,7 @@ def build_train_transforms(image_size: int):
 def build_eval_transforms(image_size: int):
     return transforms.Compose(
         [
-            transforms.Resize(image_size + 32),
-            transforms.CenterCrop(image_size),
+            transforms.Resize((image_size, image_size)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ]
