@@ -1,0 +1,73 @@
+{
+  "input_image": "data/input_faces/lea.jpeg",
+  "node_outputs": [
+    {
+      "feature_name": "eye_color",
+      "value": "gray",
+      "confidence": 0.6089347004890442,
+      "source_model": "train_eyeColor/artifacts/exported/eye_color_model.pt",
+      "metadata": {}
+    },
+    {
+      "feature_name": "eye_shape",
+      "value": "upturned",
+      "confidence": 0.4206382930278778,
+      "source_model": "train_eyeShape/artifacts/exported/eye_shape_model.pt",
+      "metadata": {}
+    },
+    {
+      "feature_name": "pupil_distance",
+      "value": 0.2502098083496094,
+      "confidence": 0.9979019165039062,
+      "source_model": "train_pupilDistance/artifacts/exported/pupil_distance_model.pt",
+      "metadata": {
+        "unit": "normalized_face_width"
+      }
+    },
+    {
+      "feature_name": "face_shape",
+      "value": "round",
+      "confidence": 0.4499717950820923,
+      "source_model": "train_faceShape/artifacts/exported/face_shape_model.pt",
+      "metadata": {}
+    }
+  ],
+  "aggregated_features": {
+    "confidences": {
+      "eye_color": 0.6089347004890442,
+      "eye_shape": 0.4206382930278778,
+      "pupil_distance": 0.9979019165039062,
+      "face_shape": 0.4499717950820923
+    },
+    "eye_color": "gray",
+    "eye_shape": "upturned",
+    "pupil_distance": 0.2502098083496094,
+    "face_shape": "round"
+  },
+  "recommendations": [
+    {
+      "frame_shape": "soft square",
+      "frame_color": "black",
+      "style_tag": "professional",
+      "score": 0.8172,
+      "reason": "soft square frames balance a round face; black complements gray eyes",
+      "rank": 1
+    },
+    {
+      "frame_shape": "rectangle",
+      "frame_color": "gunmetal",
+      "style_tag": "minimal",
+      "score": 0.8172,
+      "reason": "rectangle frames balance a round face; gunmetal complements gray eyes",
+      "rank": 2
+    },
+    {
+      "frame_shape": "navigator",
+      "frame_color": "black",
+      "style_tag": "professional",
+      "score": 0.8172,
+      "reason": "navigator frames balance a round face; black complements gray eyes",
+      "rank": 3
+    }
+  ]
+}
