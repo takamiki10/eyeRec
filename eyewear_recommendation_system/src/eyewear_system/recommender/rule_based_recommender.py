@@ -1,4 +1,4 @@
-"""Rule-based eyewear recommender.
+"""Rule-based eyewear recommender
 
 This module expects already-detected facial features as input and maps them to
 a human-readable eyewear recommendation using hard-coded rule tables.
