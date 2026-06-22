@@ -27,3 +27,5 @@ artifacts/metrics/*
 !artifacts/metrics/.gitkeep
 artifacts/exported/*
 !artifacts/exported/.gitkeep
+!artifacts/exported/pupil_distance_model.pt
+!artifacts/exported/pupil_diameter_model.pt

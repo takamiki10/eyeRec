@@ -27,3 +27,4 @@ artifacts/metrics/*
 !artifacts/metrics/.gitkeep
 artifacts/exported/*
 !artifacts/exported/.gitkeep
+!artifacts/exported/face_shape_model.pt
