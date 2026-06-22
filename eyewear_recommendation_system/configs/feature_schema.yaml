@@ -22,7 +22,6 @@ face_shape:
     - round
     - square
     - heart
-    - diamond
     - oblong
 pupil_distance:
   type: continuous

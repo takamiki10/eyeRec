@@ -1,6 +1,7 @@
 """Full placeholder recommendation pipeline."""
 
 from pathlib import Path
+from typing import Union
 
 from eyewear_system.feature_nodes import (
     EyeColorNode,
@@ -26,7 +27,7 @@ class EyewearRecommendationPipeline:
         self.aggregator = FeatureAggregator()
         self.recommender = RecommenderNode()
 
-    def run(self, image_path: str | Path) -> dict:
+    def run(self, image_path: Union[str, Path]) -> dict:
         image_path = Path(image_path)
         image = load_image(image_path)
         node_outputs = [node.predict(image) for node in self.feature_nodes]
