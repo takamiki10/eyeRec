@@ -17,6 +17,8 @@ CLASS_ALIASES = {
     # The current Roboflow Folder Structure export uses amber. Keep the training
     # schema stable by merging those examples into the configured hazel class.
     "amber": "hazel",
+    "gray": "grey",
+    "grey": "grey",
 }
 
 
@@ -69,7 +71,7 @@ def resolve_source_split(raw_dir: Path, source_split: str) -> Path:
 
 
 def target_labels_for_source(source_label: str, labels: list[str]) -> list[str]:
-    normalized_label = source_label.lower()
+    normalized_label = source_label.lower().strip().replace("_", "-").replace(" ", "-")
     if normalized_label in labels:
         return [normalized_label]
 
@@ -78,6 +80,25 @@ def target_labels_for_source(source_label: str, labels: list[str]) -> list[str]:
         return [alias_target]
 
     return []
+
+
+def load_roboflow_names(raw_dir: Path) -> list[str]:
+    data_yaml = raw_dir / "data.yaml"
+    if not data_yaml.exists():
+        return []
+    if yaml is None:
+        raise ImportError("PyYAML is required to read Roboflow YOLO data.yaml files.")
+
+    with data_yaml.open("r", encoding="utf-8") as file:
+        data = yaml.safe_load(file) or {}
+
+    names = data.get("names", [])
+    if isinstance(names, dict):
+        return [str(names[index]) for index in sorted(names)]
+    if isinstance(names, list):
+        return [str(name) for name in names]
+
+    raise ValueError(f"Unsupported names format in {data_yaml}: {type(names).__name__}")
 
 
 def clamp(value: int, lower: int, upper: int) -> int:
@@ -128,6 +149,94 @@ def save_eye_crops(image_path: Path, target_dir: Path, eye_detector, start_index
     return saved_count
 
 
+def crop_yolo_box(image, annotation: list[str]):
+    if len(annotation) < 5:
+        return None
+
+    image_height, image_width = image.shape[:2]
+    try:
+        _class_index = int(float(annotation[0]))
+        center_x = float(annotation[1]) * image_width
+        center_y = float(annotation[2]) * image_height
+        width = float(annotation[3]) * image_width
+        height = float(annotation[4]) * image_height
+    except ValueError:
+        return None
+
+    pad_x = int(width * EYE_CROP_PADDING)
+    pad_y = int(height * EYE_CROP_PADDING)
+    left = clamp(int(center_x - width / 2) - pad_x, 0, image_width)
+    top = clamp(int(center_y - height / 2) - pad_y, 0, image_height)
+    right = clamp(int(center_x + width / 2) + pad_x, 0, image_width)
+    bottom = clamp(int(center_y + height / 2) + pad_y, 0, image_height)
+    if right <= left or bottom <= top:
+        return None
+
+    return image[top:bottom, left:right]
+
+
+def is_yolo_detection_split(source_root: Path) -> bool:
+    return (source_root / "images").is_dir() and (source_root / "labels").is_dir()
+
+
+def copy_yolo_detection_split(
+    source_root: Path,
+    target_root: Path,
+    labels: list[str],
+    roboflow_names: list[str],
+) -> tuple[dict[str, int], list[str]]:
+    counts = {label: 0 for label in labels}
+    ignored_labels: set[str] = set()
+    images_root = source_root / "images"
+    labels_root = source_root / "labels"
+
+    for image_path in sorted(images_root.rglob("*")):
+        if not image_path.is_file() or image_path.suffix.lower() not in IMAGE_EXTENSIONS:
+            continue
+
+        label_path = labels_root / f"{image_path.stem}.txt"
+        if not label_path.exists():
+            continue
+
+        image = cv2.imread(str(image_path))
+        if image is None:
+            print(f"  warning: could not read image: {image_path}")
+            continue
+
+        for annotation_index, line in enumerate(label_path.read_text(encoding="utf-8").splitlines()):
+            annotation = line.split()
+            if len(annotation) < 5:
+                continue
+            try:
+                class_index = int(float(annotation[0]))
+            except ValueError:
+                continue
+            if class_index < 0 or class_index >= len(roboflow_names):
+                continue
+
+            source_label = roboflow_names[class_index]
+            target_labels = target_labels_for_source(source_label, labels)
+            if not target_labels:
+                ignored_labels.add(source_label)
+                continue
+
+            crop = crop_yolo_box(image, annotation)
+            if crop is None:
+                continue
+
+            suffix = image_path.suffix.lower()
+            for target_label in target_labels:
+                label_dir = target_root / target_label
+                label_dir.mkdir(parents=True, exist_ok=True)
+                destination = label_dir / (
+                    f"{image_path.stem}_box{annotation_index + 1}_{counts[target_label]}{suffix}"
+                )
+                cv2.imwrite(str(destination), crop)
+                counts[target_label] += 1
+
+    return counts, sorted(ignored_labels)
+
+
 def copy_images(source_dir: Path, target_dir: Path, eye_detector) -> int:
     copied_count = 0
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -157,17 +266,24 @@ def copy_split(
     target_root.mkdir(parents=True, exist_ok=True)
 
     counts = {label: 0 for label in labels}
-    source_label_dirs = [path for path in source_root.iterdir() if path.is_dir()]
     ignored_labels: list[str] = []
 
-    for source_label_dir in source_label_dirs:
-        target_labels = target_labels_for_source(source_label_dir.name, labels)
-        if not target_labels:
-            ignored_labels.append(source_label_dir.name)
-            continue
+    if is_yolo_detection_split(source_root):
+        roboflow_names = load_roboflow_names(raw_dir)
+        if not roboflow_names:
+            raise ValueError(f"Could not find Roboflow class names in {raw_dir / 'data.yaml'}")
+        counts, ignored_labels = copy_yolo_detection_split(source_root, target_root, labels, roboflow_names)
+    else:
+        source_label_dirs = [path for path in source_root.iterdir() if path.is_dir()]
 
-        for target_label in target_labels:
-            counts[target_label] += copy_images(source_label_dir, target_root / target_label, eye_detector)
+        for source_label_dir in source_label_dirs:
+            target_labels = target_labels_for_source(source_label_dir.name, labels)
+            if not target_labels:
+                ignored_labels.append(source_label_dir.name)
+                continue
+
+            for target_label in target_labels:
+                counts[target_label] += copy_images(source_label_dir, target_root / target_label, eye_detector)
 
     for label in labels:
         (target_root / label).mkdir(parents=True, exist_ok=True)

@@ -1,7 +1,7 @@
 """Base class for all feature extraction nodes."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 FeatureOutput = Dict[str, Any]
@@ -22,7 +22,7 @@ class BaseFeatureNode(ABC):
         self,
         value: Any,
         confidence: float,
-        metadata: dict | None = None,
+        metadata: Optional[dict] = None,
     ) -> FeatureOutput:
         return {
             "feature_name": self.feature_name,

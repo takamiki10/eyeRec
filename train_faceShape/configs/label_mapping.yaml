@@ -1,0 +1,8 @@
+labels:
+  oval: 0
+  round: 1
+  square: 2
+  heart: 3
+  oblong: 4
+
+notes: "The local Kaggle face-shape dataset has no diamond examples, so diamond is excluded from this trainer."

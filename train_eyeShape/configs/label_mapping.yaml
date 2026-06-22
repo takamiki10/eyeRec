@@ -1,0 +1,9 @@
+labels:
+  almond: 0
+  round: 1
+  monolid: 2
+  hooded: 3
+  upturned: 4
+  downturned: 5
+
+notes: "Labels mirror eyewear_recommendation_system/configs/feature_schema.yaml."

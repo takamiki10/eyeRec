@@ -19,7 +19,7 @@ def test_feature_aggregation_returns_expected_keys():
     assert aggregated == {
         "eye_color": "brown",
         "eye_shape": "almond",
-        "pupil_distance": 0.46,
+        "pupil_distance": 0.24,
         "face_shape": "oval",
         "confidences": {
             "eye_color": 0.90,

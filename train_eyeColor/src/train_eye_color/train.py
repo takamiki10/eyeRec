@@ -6,7 +6,7 @@ from pathlib import Path
 
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from tqdm import tqdm
 
 from train_eye_color.datasets import EyeColorFolderDataset, build_eval_transforms, build_train_transforms
@@ -20,6 +20,47 @@ from train_eye_color.utils import (
     save_json,
     set_seed,
 )
+
+
+def class_counts_from_samples(samples: list[tuple[Path, int]], num_classes: int) -> list[int]:
+    counts = [0 for _ in range(num_classes)]
+    for _, label_index in samples:
+        counts[label_index] += 1
+    return counts
+
+
+def build_balanced_sampler(samples: list[tuple[Path, int]], num_classes: int) -> WeightedRandomSampler:
+    counts = class_counts_from_samples(samples, num_classes)
+    sample_weights = [1.0 / max(counts[label_index], 1) for _, label_index in samples]
+    return WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
+
+
+def build_class_weight_tensor(samples: list[tuple[Path, int]], num_classes: int, device: torch.device) -> torch.Tensor:
+    counts = class_counts_from_samples(samples, num_classes)
+    total = sum(counts)
+    weights = [total / (num_classes * max(count, 1)) for count in counts]
+    return torch.tensor(weights, dtype=torch.float32, device=device)
+
+
+def set_feature_training(model: nn.Module, trainable: bool) -> None:
+    for parameter in model.features.parameters():
+        parameter.requires_grad = trainable
+    for parameter in model.classifier.parameters():
+        parameter.requires_grad = True
+
+
+def unfreeze_last_feature_blocks(model: nn.Module, block_count: int) -> None:
+    set_feature_training(model, trainable=False)
+    if block_count <= 0:
+        return
+    for block in model.features[-block_count:]:
+        for parameter in block.parameters():
+            parameter.requires_grad = True
+
+
+def build_optimizer(model: nn.Module, learning_rate: float, weight_decay: float) -> torch.optim.Optimizer:
+    trainable_parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
+    return torch.optim.AdamW(trainable_parameters, lr=learning_rate, weight_decay=weight_decay)
 
 
 def run_epoch(model, dataloader, criterion, device, optimizer=None) -> tuple[float, float]:
@@ -52,9 +93,16 @@ def run_epoch(model, dataloader, criterion, device, optimizer=None) -> tuple[flo
     return total_loss / total, correct / total
 
 
-def save_best_export(checkpoint: dict, export_dir: Path, epoch: int, val_accuracy: float) -> None:
+def save_best_export(
+    checkpoint: dict,
+    export_dir: Path,
+    epoch: int,
+    val_accuracy: float,
+    keep_versioned_exports: bool,
+) -> None:
     versioned_path = export_dir / f"eye_color_model_epoch_{epoch:03d}_val_{val_accuracy:.4f}.pt"
-    torch.save(checkpoint, versioned_path)
+    if keep_versioned_exports:
+        torch.save(checkpoint, versioned_path)
 
     final_path = export_dir / "eye_color_model.pt"
     temp_path = export_dir / f".{final_path.name}.tmp_{epoch:03d}_{int(time.time())}"
@@ -65,9 +113,9 @@ def save_best_export(checkpoint: dict, export_dir: Path, epoch: int, val_accurac
         if temp_path.exists():
             temp_path.unlink()
         print(
-            "warning: saved best model version but could not update "
+            "warning: could not update "
             f"{final_path}: {error}. Close any process syncing or reading that file, "
-            f"then copy {versioned_path.name} to {final_path.name}."
+            "then rerun training or evaluate the latest checkpoint."
         )
 
 
@@ -80,6 +128,7 @@ def train(config_path: str | Path) -> dict:
 
     set_seed(int(config["seed"]))
     device = get_device(str(config["device"]))
+    print(f"Using device: {device}")
 
     train_dataset = EyeColorFolderDataset(
         resolve_path(config["train_dir"], base_dir),
@@ -92,10 +141,11 @@ def train(config_path: str | Path) -> dict:
         transform=build_eval_transforms(int(config["image_size"])),
     )
 
+    balanced_sampler = build_balanced_sampler(train_dataset.samples, len(label_to_index))
     train_loader = DataLoader(
         train_dataset,
         batch_size=int(config["batch_size"]),
-        shuffle=True,
+        sampler=balanced_sampler,
         num_workers=int(config["num_workers"]),
     )
     val_loader = DataLoader(
@@ -110,8 +160,22 @@ def train(config_path: str | Path) -> dict:
         model_name=str(config["model_name"]),
         use_pretrained=bool(config["use_pretrained"]),
     ).to(device)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=float(config["learning_rate"]))
+    frozen_epochs = int(config.get("frozen_epochs", 0))
+    unfreeze_last_n_blocks = int(config.get("unfreeze_last_n_blocks", 0))
+    if frozen_epochs > 0:
+        set_feature_training(model, trainable=False)
+
+    class_weights = build_class_weight_tensor(train_dataset.samples, len(label_to_index), device)
+    criterion = nn.CrossEntropyLoss(
+        weight=class_weights,
+        label_smoothing=float(config.get("label_smoothing", 0.0)),
+    )
+    optimizer = build_optimizer(
+        model,
+        learning_rate=float(config["learning_rate"]),
+        weight_decay=float(config.get("weight_decay", 0.0)),
+    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(int(config["epochs"]), 1))
 
     checkpoint_dir = resolve_path(config["checkpoint_dir"], base_dir)
     export_dir = resolve_path(config["export_dir"], base_dir)
@@ -121,10 +185,25 @@ def train(config_path: str | Path) -> dict:
     metrics_dir.mkdir(parents=True, exist_ok=True)
 
     best_val_accuracy = 0.0
+    epochs_without_improvement = 0
+    early_stopping_patience = int(config.get("early_stopping_patience", 0))
+    save_every_n_epochs = int(config.get("save_every_n_epochs", 0))
+    keep_versioned_exports = bool(config.get("keep_versioned_exports", False))
     history = []
     started_at = time.time()
 
     for epoch in range(1, int(config["epochs"]) + 1):
+        if epoch == frozen_epochs + 1 and frozen_epochs > 0:
+            unfreeze_last_feature_blocks(model, unfreeze_last_n_blocks)
+            optimizer = build_optimizer(
+                model,
+                learning_rate=float(config.get("fine_tune_learning_rate", config["learning_rate"])),
+                weight_decay=float(config.get("weight_decay", 0.0)),
+            )
+            remaining_epochs = max(int(config["epochs"]) - epoch + 1, 1)
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=remaining_epochs)
+            print(f"Unfroze last {unfreeze_last_n_blocks} feature blocks for fine-tuning.")
+
         print(f"Epoch {epoch}/{config['epochs']}")
         train_loss, train_accuracy = run_epoch(model, train_loader, criterion, device, optimizer)
         val_loss, val_accuracy = run_epoch(model, val_loader, criterion, device)
@@ -141,6 +220,7 @@ def train(config_path: str | Path) -> dict:
             f"train_loss={train_loss:.4f} train_acc={train_accuracy:.4f} "
             f"val_loss={val_loss:.4f} val_acc={val_accuracy:.4f}"
         )
+        scheduler.step()
 
         checkpoint = {
             "model_state_dict": model.state_dict(),
@@ -150,11 +230,22 @@ def train(config_path: str | Path) -> dict:
             "epoch": epoch,
             "val_accuracy": val_accuracy,
         }
-        torch.save(checkpoint, checkpoint_dir / f"epoch_{epoch:03d}.pt")
+        if save_every_n_epochs > 0 and epoch % save_every_n_epochs == 0:
+            torch.save(checkpoint, checkpoint_dir / f"epoch_{epoch:03d}.pt")
 
         if val_accuracy >= best_val_accuracy:
             best_val_accuracy = val_accuracy
-            save_best_export(checkpoint, export_dir, epoch, val_accuracy)
+            epochs_without_improvement = 0
+            save_best_export(checkpoint, export_dir, epoch, val_accuracy, keep_versioned_exports)
+        else:
+            epochs_without_improvement += 1
+
+        if early_stopping_patience > 0 and epochs_without_improvement >= early_stopping_patience:
+            print(
+                f"Early stopping after {epoch} epochs. "
+                f"Best val_acc={best_val_accuracy:.4f}."
+            )
+            break
 
     training_metrics = {
         "best_val_accuracy": best_val_accuracy,
