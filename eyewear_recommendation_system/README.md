@@ -100,6 +100,17 @@ The output is printed and saved to:
 outputs/recommendations/top3_recommendations.json
 ```
 
+## Run The Camera GUI
+
+The browser GUI previews the webcam, saves captured photos into `data/input_faces/`, and runs the same EyeRec pipeline from an `eyeRec` button:
+
+```bash
+cd eyewear_recommendation_system
+../.venv/bin/python scripts/eyerec_gui.py
+```
+
+The script opens `http://127.0.0.1:8765` automatically. If the browser does not open, copy that URL from the terminal into Chrome, Safari, or Edge.
+
 ## Example Output
 
 The pipeline returns:

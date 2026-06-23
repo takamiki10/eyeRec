@@ -1,42 +1,42 @@
 {
-  "input_image": "data/input_faces/blueman.png",
+  "input_image": "/Users/pranavponnivalavan/eyeRec/eyewear_recommendation_system/data/input_faces/eyerec_capture_20260623_134225.jpg",
   "detected_features": {
     "face_shape": {
-      "value": "square",
-      "confidence": 0.635
+      "value": "round",
+      "confidence": 0.71
     },
     "eye_shape": {
       "value": "round",
-      "confidence": 0.453
+      "confidence": 0.55
     },
     "eye_color": {
-      "value": "blue",
-      "confidence": 0.384
+      "value": "brown",
+      "confidence": 0.793
     },
     "pupil_distance": {
-      "value": 0.25091245770454407,
-      "confidence": 0.991
+      "value": 0.24892254173755646,
+      "confidence": 0.989
     }
   },
   "rule_based": {
     "success": true,
-    "summary": "Try round, oval, thin metal, or soft cat-eye frames in silver, gray, blue, navy, or cool transparent. Avoid very boxy square frames.",
+    "summary": "Try rectangular, square, wayfarer, or angular cat-eye frames in tortoiseshell, gold, green, black, or warm brown. Avoid round frames.",
     "best_shapes": [
-      "round",
-      "oval",
-      "thin metal",
-      "soft cat-eye"
+      "rectangular",
+      "square",
+      "wayfarer",
+      "angular cat-eye"
     ],
     "best_colors": [
-      "silver",
-      "gray",
-      "blue",
-      "navy",
-      "cool transparent"
+      "tortoiseshell",
+      "gold",
+      "green",
+      "black",
+      "warm brown"
     ],
     "bridge_fit": "narrow bridge, lighter or clear bridge",
     "avoid": [
-      "very boxy square frames"
+      "round frames"
     ]
   },
   "dnn": {
@@ -47,19 +47,19 @@
         "rank": 1,
         "frame": "geometric / clear",
         "style": "modern",
-        "score": 0.4967
+        "score": 0.4949
       },
       {
         "rank": 2,
-        "frame": "rimless / silver",
-        "style": "minimal",
-        "score": 0.4956
+        "frame": "flat top / forest green",
+        "style": "street",
+        "score": 0.4936
       },
       {
         "rank": 3,
-        "frame": "transparent / clear",
-        "style": "modern",
-        "score": 0.4939
+        "frame": "butterfly / rose gold",
+        "style": "bold",
+        "score": 0.4924
       }
     ],
     "note": "Untrained DNN; use scores for comparison only."

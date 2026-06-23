@@ -5,3 +5,6 @@ eyewear_recommendation_system/.git_backup_from_app/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+
+eyewear_recommendation_system/data/input_faces/*
+!eyewear_recommendation_system/data/input_faces/.gitkeep
