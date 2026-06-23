@@ -1,91 +1,86 @@
-"""Rule-based eyewear recommender node."""
+"""Combined eyewear recommender node."""
 
-import csv
-from pathlib import Path
-from typing import Optional, Union
+from __future__ import annotations
 
+from typing import Any
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-
-FACE_SHAPE_FRAME_MATCHES = {
-    "oval": {
-        "round", "soft square", "rectangle", "cat eye", "aviator", "browline", "oval", "square",
-        "wayfarer", "geometric", "hexagon", "panto", "rimless", "clubmaster", "navigator",
-    },
-    "round": {
-        "rectangle", "square", "browline", "soft square", "wayfarer", "geometric",
-        "d frame", "flat top", "sport rectangle", "navigator",
-    },
-    "square": {
-        "round", "oval", "aviator", "panto", "rimless", "semi rimless", "rounded square",
-        "thin metal", "butterfly",
-    },
-    "heart": {
-        "round", "oval", "cat eye", "butterfly", "rimless", "semi rimless", "panto",
-        "keyhole bridge", "thin metal",
-    },
-    "oblong": {
-        "round", "aviator", "oval", "browline", "oversized", "wayfarer", "clubmaster",
-        "double bridge", "navigator", "chunky acetate",
-    },
-}
-
-EYE_COLOR_MATCHES = {
-    "brown": {"dark brown", "tortoise", "gold", "black", "espresso", "walnut", "crystal brown", "amber", "burgundy"},
-    "blue": {"black", "gunmetal", "navy", "clear", "matte black", "silver", "champagne"},
-    "green": {"forest green", "tortoise", "burgundy", "gold", "teal", "plum"},
-    "hazel": {"tortoise", "gold", "forest green", "dark brown", "amber", "walnut", "crystal brown"},
-    "gray": {"black", "gunmetal", "clear", "navy", "matte black", "silver", "champagne"},
-    "grey": {"black", "gunmetal", "clear", "navy", "matte black", "silver", "champagne"},
-}
+from eyewear_system.recommender.dnn_model import DNNRecommendationNode
+from eyewear_system.recommender.rule_based_recommender import RuleBasedEyewearRecommender
 
 
 class RecommenderNode:
-    """Small deterministic recommender using extracted face and eye features."""
+    """Run rule-based and DNN recommenders from one entry point."""
 
-    def __init__(self, catalog_path: Optional[Union[str, Path]] = None) -> None:
-        self.catalog_path = Path(catalog_path) if catalog_path else PROJECT_ROOT / "data" / "eyewear_catalog" / "eyewear_items.csv"
-        self.catalog = self._load_catalog()
+    def __init__(self) -> None:
+        self.rule_based_recommender = RuleBasedEyewearRecommender()
+        self.dnn_recommender = DNNRecommendationNode()
 
-    def _load_catalog(self) -> list[dict]:
-        with self.catalog_path.open("r", encoding="utf-8", newline="") as file:
-            return list(csv.DictReader(file))
+    def recommend(self, features: dict[str, Any] | None) -> dict[str, Any]:
+        rule_based = self.rule_based_recommender.recommend(features)
+        dnn = self.dnn_recommender.recommend(features)
+        return {
+            "rule_based": _simplify_rule_based(rule_based),
+            "dnn": _simplify_dnn(dnn),
+        }
 
-    def recommend(self, features: dict) -> list[dict]:
-        face_shape = str(features.get("face_shape", "")).lower()
-        eye_color = str(features.get("eye_color", "")).lower()
-        confidences = features.get("confidences", {})
-        face_confidence = float(confidences.get("face_shape", 0.0))
-        eye_confidence = float(confidences.get("eye_color", 0.0))
+    def recommend_rule_based(self, features: dict[str, Any] | None) -> dict[str, Any]:
+        """Return the full rule-based output for tests and detailed debugging."""
+        return self.rule_based_recommender.recommend(features)
 
-        preferred_shapes = FACE_SHAPE_FRAME_MATCHES.get(face_shape, set())
-        preferred_colors = EYE_COLOR_MATCHES.get(eye_color, set())
-        scored_items = []
+    def recommend_dnn(self, features: dict[str, Any] | None) -> dict[str, Any]:
+        """Return the full DNN output for tests and detailed debugging."""
+        return self.dnn_recommender.recommend(features)
 
-        for item in self.catalog:
-            score = 0.50
-            reasons = []
+    def recommend_sentence(self, features: dict[str, Any] | None) -> str:
+        return self.rule_based_recommender.recommend_sentence(features)
 
-            if item["frame_shape"] in preferred_shapes:
-                score += 0.30 * max(face_confidence, 0.35)
-                reasons.append(f"{item['frame_shape']} frames balance a {face_shape} face")
-            if item["frame_color"] in preferred_colors:
-                score += 0.25 * max(eye_confidence, 0.35)
-                reasons.append(f"{item['frame_color']} complements {eye_color} eyes")
-            if item["style_tag"] in {"classic", "professional", "minimal"}:
-                score += 0.03
 
-            scored_items.append(
-                {
-                    "frame_shape": item["frame_shape"],
-                    "frame_color": item["frame_color"],
-                    "style_tag": item["style_tag"],
-                    "score": round(min(score, 0.99), 4),
-                    "reason": "; ".join(reasons) if reasons else f"General fallback match for {face_shape} face and {eye_color} eyes",
-                }
-            )
+def _simplify_rule_based(result: dict[str, Any]) -> dict[str, Any]:
+    if not result.get("success"):
+        return {
+            "success": False,
+            "summary": result.get("warning"),
+        }
 
-        ranked = sorted(scored_items, key=lambda item: item["score"], reverse=True)[:3]
-        for index, item in enumerate(ranked, start=1):
-            item["rank"] = index
-        return ranked
+    return {
+        "success": True,
+        "summary": (
+            f"Try {_join_list(result['recommended_shapes'])} frames in "
+            f"{_join_list(result['recommended_colors'])}. "
+            f"Avoid {_join_list(result['avoid'])}."
+        ),
+        "best_shapes": result["recommended_shapes"],
+        "best_colors": result["recommended_colors"],
+        "bridge_fit": result["eye_distance_modifier"],
+        "avoid": result["avoid"],
+    }
+
+
+def _simplify_dnn(result: dict[str, Any]) -> dict[str, Any]:
+    top_picks = [
+        {
+            "rank": item["rank"],
+            "frame": f"{item['frame_shape']} / {item['frame_color']}",
+            "style": item["style_tag"],
+            "score": item["score"],
+        }
+        for item in result.get("recommendations", [])
+    ]
+    simplified = {
+        "success": result.get("success", False),
+        "trained": result.get("trained", False),
+        "top_picks": top_picks,
+    }
+    if result.get("warning"):
+        simplified["note"] = "Untrained DNN; use scores for comparison only."
+    return simplified
+
+
+def _join_list(values: list[str]) -> str:
+    if not values:
+        return "none"
+    if len(values) == 1:
+        return values[0]
+    if len(values) == 2:
+        return f"{values[0]} or {values[1]}"
+    return f"{', '.join(values[:-1])}, or {values[-1]}"

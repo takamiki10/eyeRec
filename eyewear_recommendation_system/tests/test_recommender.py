@@ -1,4 +1,5 @@
 from eyewear_system.recommender.recommender_node import RecommenderNode
+from eyewear_system.recommender.dnn_model import DNNRecommendationNode
 
 def test_recommender_returns_sentence_for_valid_input():
     features = {
@@ -8,7 +9,7 @@ def test_recommender_returns_sentence_for_valid_input():
         "pupil_distance": 0.46,
     }
 
-    result = RecommenderNode().recommend(features)
+    result = RecommenderNode().recommend_rule_based(features)
 
     assert result["success"] is True
     assert result["warning"] is None
@@ -37,7 +38,7 @@ def test_recommender_converts_close_set_pupil_distance():
         "pupil_distance": 0.40,
     }
 
-    result = RecommenderNode().recommend(features)
+    result = RecommenderNode().recommend_rule_based(features)
 
     assert result["success"] is True
     assert result["eye_distance"] == "close_set"
@@ -52,7 +53,7 @@ def test_recommender_converts_wide_set_pupil_distance():
         "pupil_distance": 0.53,
     }
 
-    result = RecommenderNode().recommend(features)
+    result = RecommenderNode().recommend_rule_based(features)
 
     assert result["success"] is True
     assert result["eye_distance"] == "wide_set"
@@ -67,7 +68,7 @@ def test_recommender_returns_warning_for_missing_input():
         # Missing pupil_distance
     }
 
-    result = RecommenderNode().recommend(features)
+    result = RecommenderNode().recommend_rule_based(features)
 
     assert result["success"] is False
     assert result["sentence"] is None
@@ -85,7 +86,7 @@ def test_recommender_returns_warning_for_invalid_pupil_distance():
         "pupil_distance": "not_a_number",
     }
 
-    result = RecommenderNode().recommend(features)
+    result = RecommenderNode().recommend_rule_based(features)
 
     assert result["success"] is False
     assert result["sentence"] is None
@@ -108,3 +109,40 @@ def test_recommend_sentence_returns_only_sentence():
     assert isinstance(sentence, str)
     assert "For a heart face with hooded hazel eyes" in sentence
     assert "standard bridge" in sentence
+
+
+def test_dnn_recommender_returns_ranked_catalog_predictions():
+    features = {
+        "face_shape": "round",
+        "eye_shape": "almond",
+        "eye_color": "brown",
+        "pupil_distance": 0.46,
+    }
+
+    result = DNNRecommendationNode().recommend(features)
+
+    assert result["success"] is True
+    assert result["model_type"] == "dnn"
+    assert result["trained"] is False
+    assert "untrained weights" in result["warning"]
+    assert len(result["recommendations"]) == 3
+    assert [item["rank"] for item in result["recommendations"]] == [1, 2, 3]
+    assert all("score" in item for item in result["recommendations"])
+
+
+def test_combined_recommender_returns_simple_comparison():
+    features = {
+        "face_shape": "round",
+        "eye_shape": "almond",
+        "eye_color": "brown",
+        "pupil_distance": 0.46,
+    }
+
+    result = RecommenderNode().recommend(features)
+
+    assert set(result) == {"rule_based", "dnn"}
+    assert result["rule_based"]["success"] is True
+    assert "best_shapes" in result["rule_based"]
+    assert "summary" in result["rule_based"]
+    assert result["dnn"]["success"] is True
+    assert "top_picks" in result["dnn"]
