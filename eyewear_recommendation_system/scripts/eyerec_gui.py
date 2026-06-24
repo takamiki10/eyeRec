@@ -162,10 +162,8 @@ def format_result(result: dict) -> str:
 
     lines = ["Detected features", ""]
     for key in ("face_shape", "eye_shape", "eye_color", "pupil_distance"):
-        feature = features[key]
-        value = format_value(feature["value"])
-        confidence = feature["confidence"]
-        lines.append(f"{key.replace('_', ' ').title()}: {value} ({confidence})")
+        value = format_value(features[key])
+        lines.append(f"{key.replace('_', ' ').title()}: {value}")
 
     lines.extend(
         [
@@ -182,9 +180,7 @@ def format_result(result: dict) -> str:
         ]
     )
     for item in dnn.get("top_picks", []):
-        lines.append(f"{item['rank']}. {item['frame']} - {item['style']} ({item['score']})")
-    if dnn.get("note"):
-        lines.extend(["", str(dnn["note"])])
+        lines.append(f"{item['rank']}. {item['frame']} - {item['style']}")
     return "\n".join(lines)
 
 
@@ -305,7 +301,7 @@ HTML = r"""<!doctype html>
 
     .actions {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
     }
 
@@ -418,7 +414,6 @@ HTML = r"""<!doctype html>
       <div class="actions">
         <button id="capture">Capture</button>
         <button class="primary" id="run">eyeRec</button>
-        <button id="restart">Restart Camera</button>
       </div>
     </section>
     <section class="results-side">
@@ -438,7 +433,6 @@ HTML = r"""<!doctype html>
     const results = document.getElementById("results");
     const captureButton = document.getElementById("capture");
     const runButton = document.getElementById("run");
-    const restartButton = document.getElementById("restart");
     let stream = null;
     let hasCapture = false;
 
@@ -529,7 +523,6 @@ HTML = r"""<!doctype html>
       }
     });
 
-    restartButton.addEventListener("click", startCamera);
     startCamera();
   </script>
 </body>

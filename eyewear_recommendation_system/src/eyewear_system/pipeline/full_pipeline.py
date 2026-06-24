@@ -49,13 +49,15 @@ class EyewearRecommendationPipeline:
 
 
 def _simplify_features(features: dict[str, Any]) -> dict[str, Any]:
-    confidences = features.get("confidences", {})
-    simplified = {}
-    for feature_name in ("face_shape", "eye_shape", "eye_color", "pupil_distance"):
-        value = features.get(feature_name)
-        confidence = confidences.get(feature_name)
-        simplified[feature_name] = {
-            "value": value,
-            "confidence": round(float(confidence), 3) if confidence is not None else None,
-        }
-    return simplified
+    return {
+        "face_shape": features.get("face_shape"),
+        "eye_shape": features.get("eye_shape"),
+        "eye_color": features.get("eye_color"),
+        "pupil_distance": _format_feature_value(features.get("pupil_distance")),
+    }
+
+
+def _format_feature_value(value: Any) -> Any:
+    if isinstance(value, float):
+        return round(value, 3)
+    return value

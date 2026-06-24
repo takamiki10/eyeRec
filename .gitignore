@@ -8,3 +8,5 @@ __pycache__/
 
 eyewear_recommendation_system/data/input_faces/*
 !eyewear_recommendation_system/data/input_faces/.gitkeep
+eyewear_recommendation_system/data/outputs/*
+!eyewear_recommendation_system/data/outputs/recommendations/*

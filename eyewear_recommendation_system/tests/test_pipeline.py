@@ -12,13 +12,22 @@ def test_full_pipeline_returns_expected_sections(tmp_path: Path):
     result = EyewearRecommendationPipeline().run(image_path)
 
     assert "detected_features" in result
+    assert set(result["detected_features"]) == {
+        "face_shape",
+        "eye_shape",
+        "eye_color",
+        "pupil_distance",
+    }
+    assert all(not isinstance(value, dict) for value in result["detected_features"].values())
     assert "rule_based" in result
     assert "dnn" in result
+    assert "note" not in result["dnn"]
     assert "debug" not in result
     assert result["rule_based"]["success"] is True
     assert isinstance(result["rule_based"]["summary"], str)
     assert result["dnn"]["success"] is True
     assert len(result["dnn"]["top_picks"]) == 3
+    assert all("score" not in item for item in result["dnn"]["top_picks"])
 
 
 def test_full_pipeline_can_include_debug_sections(tmp_path: Path):

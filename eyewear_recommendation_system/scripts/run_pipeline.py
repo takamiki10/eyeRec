@@ -58,11 +58,7 @@ def _format_readable_result(result: dict) -> str:
         "Detected features:",
     ]
     for label in ("face_shape", "eye_shape", "eye_color", "pupil_distance"):
-        feature = features[label]
-        lines.append(
-            f"- {label.replace('_', ' ')}: {_format_value(feature['value'])} "
-            f"(confidence {feature['confidence']})"
-        )
+        lines.append(f"- {label.replace('_', ' ')}: {_format_value(features[label])}")
 
     lines.extend(
         [
@@ -80,12 +76,7 @@ def _format_readable_result(result: dict) -> str:
         ]
     )
     for item in dnn.get("top_picks", []):
-        lines.append(
-            f"  {item['rank']}. {item['frame']} "
-            f"({item['style']}, score {item['score']})"
-        )
-    if dnn.get("note"):
-        lines.append(f"- Note: {dnn['note']}")
+        lines.append(f"  {item['rank']}. {item['frame']} ({item['style']})")
     return "\n".join(lines)
 
 

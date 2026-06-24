@@ -62,7 +62,6 @@ def _simplify_dnn(result: dict[str, Any]) -> dict[str, Any]:
             "rank": item["rank"],
             "frame": f"{item['frame_shape']} / {item['frame_color']}",
             "style": item["style_tag"],
-            "score": item["score"],
         }
         for item in result.get("recommendations", [])
     ]
@@ -71,8 +70,6 @@ def _simplify_dnn(result: dict[str, Any]) -> dict[str, Any]:
         "trained": result.get("trained", False),
         "top_picks": top_picks,
     }
-    if result.get("warning"):
-        simplified["note"] = "Untrained DNN; use scores for comparison only."
     return simplified
 
 
